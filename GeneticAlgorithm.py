@@ -2,13 +2,11 @@ import random
 import numpy as np
 
 class GeneticAlgorithm():
-    def __init__(self, population):
+    def __init__(self, population, evaluate):
         self.population = population
         self.l= population.shape[1]
+        self.evaluate= evaluate
         self.fitness = np.array([self.evaluate(individual) for individual in self.population])
-
-    def evaluate(self, individual):
-        return sum(individual)
 
     def selection(self, t=2):
         #Implémenter le Tournament selection
@@ -44,6 +42,8 @@ class GeneticAlgorithm():
         return offspring
 
     def replacement(self, parents_population, offspring_population, k= 5):
+        parents_population= parents_population.astype(int)
+        offspring_population= offspring_population.astype(int)
         new_generation= np.empty((0, parents_population.shape[1]))
         new_fitness= np.array([])
         pop_size= len(parents_population)

@@ -1,0 +1,10 @@
+PROJET_RECHERCHE_AE_V0: RAZE NICOLAS
+
+ .Fonctionnalités présentes
+-> Implémentation des 3 Algorithmes pour comprendre leur Fonctionnement
+
+.Fonctionnalités à Développer
+-> Prise en Main des Librairies permettant de manipuler les Algorithmes plus facilement
+-> Utilisation de différentes Fonctions de Benchmarks pour tester les Algorithmes
+-> ...
+-----------------------------------------------------------------------------------
