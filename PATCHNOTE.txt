@@ -8,3 +8,15 @@ PROJET_RECHERCHE_AE_V0: RAZE NICOLAS
 -> Utilisation de différentes Fonctions de Benchmarks pour tester les Algorithmes
 -> ...
 -----------------------------------------------------------------------------------
+
+PROJET_RECHERCHE_AE_V0.1: RAZE NICOLAS
+
+ .Fonctionnalités présentes
+-> Implémentation des 3 Algorithmes pour comprendre leur Fonctionnement
+-> Initialisation des 3 Algorithme via Platypus
+-> Test des Algorithmes sur Fonctions de Benchmarks(Kim1 / Ackley / Six-Hump Camel)
+-> Visualisation de la Position des Solutions dans l'espace de recherche(3D)
+
+.Fonctionnalités à Développer
+-> Poursuivre l'implémentation de méthodes de comparaisons entre les Algorithmes 
+-----------------------------------------------------------------------------------
