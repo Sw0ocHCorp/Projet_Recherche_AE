@@ -20,3 +20,36 @@ PROJET_RECHERCHE_AE_V0.1: RAZE NICOLAS
 .Fonctionnalités à Développer
 -> Poursuivre l'implémentation de méthodes de comparaisons entre les Algorithmes 
 -----------------------------------------------------------------------------------
+
+PROJET_RECHERCHE_AE_V0.2: RAZE NICOLAS
+
+ .Fonctionnalités présentes
+-> Implémentation des 3 Algorithmes pour comprendre leur Fonctionnement
+-> Initialisation des 3 Algorithme via Platypus
+-> Test des Algorithmes sur Fonctions de Benchmarks(Kim1 / Ackley / Six-Hump Camel)
+-> Visualisation de la Position des Solutions dans l'espace de recherche(3D)
+-> Implémentation d'un Pattern Observer pour récupérer des données de comparaisons entre les Algorithmes
+-> Réalisation de Tests:
+    * Comparaison des "vitesses" de convergence des Algorithmes sur la Fonction de Benchmark Kim1 3D
+    * Comparaison de la valeur de Fitness Value sur la Fonction de Benchmark Kim1
+
+.Fonctionnalités à Développer
+-> Poursuivre l'implémentation de méthodes de comparaisons entre les Algorithmes 
+-----------------------------------------------------------------------------------
+
+PROJET_RECHERCHE_AE_V0.3: RAZE NICOLAS
+
+ .Fonctionnalités présentes
+-> Implémentation des 3 Algorithmes pour comprendre leur Fonctionnement
+-> Initialisation des 3 Algorithme via Platypus
+-> Test des Algorithmes sur Fonctions de Benchmarks(Kim1 / Ackley / Six-Hump Camel)
+-> Visualisation de la Position des Solutions dans l'espace de recherche(3D)
+-> Implémentation d'un Pattern Observer pour récupérer des données de comparaisons entre les Algorithmes
+-> Réalisation de Tests:
+    * Comparaison des "vitesses" de convergence des Algorithmes sur la Fonction de Benchmark Kim1 3D
+    * Comparaison de la valeur de Fitness Value sur la Fonction de Benchmark Kim1
+    * Comparaison des Algorithmes sur les Fonction de Benchmarks CEC2005
+
+.Fonctionnalités à Développer
+-> Poursuivre l'implémentation de méthodes de comparaisons entre les Algorithmes 
+-----------------------------------------------------------------------------------

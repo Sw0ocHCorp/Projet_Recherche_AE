@@ -53,7 +53,6 @@ def ackley(particle):
     return f
 
 
-
 def evaluate(individual):
         return sum(individual)
 
