@@ -4,6 +4,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import optproblems.cec2005
+import seaborn as sns
+from platypus import ExperimentJob
 
 from ObserverTasks import *
 from PerfIndicators import *
@@ -24,49 +26,94 @@ def sixhump(individual):
 def kim(individual):
      return (sin(individual[0]) + cos(individual[1]) + 0.016*(individual[0]-5)**2 + 0.008*(individual[1] - 5)**2)
 
-if __name__ == "__main__":
-    """    
-    #==> Convergence des Algorithmes sur une Fonction de Benchmarks <==#
+#==> Optimisation des Algorithmes GA et NSGAII <==#
+def opti_ga_nsgaii(nexec= 30, dim= 2):
+    plot_stat= PlotStatistics()
+    plot_stat.set_isClassic(True)
+    algorithm_list= np.empty((0, 3), dtype= object)
+    Xovers=[SBX(), UNDX(), PCX(), SPX()] # all possible Xovers
+    Mutations=[PM(), UniformMutation(probability= 0.05, perturbation= 0.05), UM(), CompoundMutation()] #all possible Mutations
+    fig=plt.figure() # a new figure
+    # for all combinations of Xover and Mutation
+    #cpt= 0
+    sns.reset_orig()  # get default matplotlib styles back
+    i= 0
+    for Xover,Mutation in [(x,m) for x in Xovers for m in Mutations]:
+        #cpt+=1
+        myProblem = Problem (dim, 1, function= kim)
+        # each variable of the myProblem is a float value in [-5,5]
+        myProblem.types[:] = Real(-5,5)
+        myProblem.directions[:]=[Problem.MINIMIZE]
+        resultNfe, resultMin=[], [] # empty results
+        XoverName, MutName=type(Xover).__name__, type(Mutation).__name__
+        #algorithm = GeneticAlgorithm(myProblem, variator= GAOperator(Xover, Mutation))
+        algorithm = NSGAII(myProblem, variator= GAOperator(Xover, Mutation))
+        row= np.array([algorithm, XoverName, MutName])
+        algorithm_list= np.vstack([algorithm_list, row]) # add algorithm to list (for legend of plot at the end of
+        for seed in range(nexec): # execute same algorithm several times
+            random.seed(seed) # modify current seed
+            # TO BE COMPLETED
+            algorithm.run(10, callback= plot_stat.do_task)
+            # create a pandas serie for Nfe & Min fitness
+            resultNfe.append(pd.Series(algorithm.statistics['nfe']))
+            resultMin.append(pd.Series(algorithm.statistics['min']))
+            # execution may be long, so print where we are
+            print ('run {0} with {1} {2}'.format(seed,XoverName,MutName))
+            # mean of all executions for same algorithm using pandas
+            X = pd.concat(resultNfe,axis=1).mean(axis=1).tolist()
+            Y = pd.concat(resultMin,axis=1).mean(axis=1).tolist()
+            # TO BE COMPLETED
+        for row in algorithm_list:
+            r = np.round(np.random.rand(),1)
+            g = np.round(np.random.rand(),1)
+            b = np.round(np.random.rand(),1)
+            plt.plot(row[0].statistics['nfe'], row[0].statistics['avg'], label= row[1] + " " + row[2], color= [r,g,b])
+        plt.title("NSGAII XOver & Mutation comparisons on Kim (" + str(myProblem.nvars) + "D) on "+str(nexec)+" executions")
+        plt.xlabel('Number of Function Evaluations')
+        plt.ylabel('Average min fitness')
+        plt.legend(loc= "upper right")
+        plt.show()
+
+def test_convergence():
     # --> Tâches Observers
     #csv_writer= CSVWriter()
-    plot_stat_task= PlotStatistics(isClassic= False)
+    plot_stat_task= PlotStatistics()
     plot_search_task= PlotSearchSpace(benchmark_function= kim, isClassic= False)
-    plot_stat_task2= PlotStatistics(isClassic= True)
     plot_search_task2= PlotSearchSpace(benchmark_function= kim, isClassic= True)
     
     #observers= np.array([csv_writer, plot_search_task, plot_stat_task], dtype= object)
     observers= np.array([plot_stat_task], dtype= object)
     pattern_observer= PatternObservers(tasks= observers)
-    benchmark_problem= Problem(2, 1, function= kim)
+    benchmark_problem= Problem(10, 1, function= kim)
     benchmark_problem.types[:]= Real(-5, 5)
     benchmark_problem.directions= [Problem.MINIMIZE]
     # ALGORITHMES à TESTER
     #   --> Particle Swarm Optimization 
     #csv_writer.reset_csv(filename= "pso.csv")
-    plot_search_task.set_title(title= "Particle Swarm Optimization")
+    #plot_search_task.set_title(title= "Particle Swarm Optimization")
     smpso_algorithm= SMPSO(problem= benchmark_problem, swarm_size= 100, leader= 5)
-    smpso_algorithm.run(2000)
+    plot_stat_task.set_isClassic(isClassic= False)
+    smpso_algorithm.run(2000, callback= plot_stat_task.do_task)
     #observers= np.array([csv_writer, plot_search_task2, plot_stat_task2], dtype= object)
-    observers= np.array([plot_stat_task2], dtype= object)
-    pattern_observer.tasks= observers
     print("--> Résultat de l'algorithme SMPSO: Particle Swarm Optimization")
     for s in smpso_algorithm.result:
         print(s.objectives)
     print("--------------------------------------------")
     #   --> Differential Evolution
     #csv_writer.reset_csv(filename= "de.csv")
-    plot_search_task2.set_title(title= "Differential Evolution")
+    #plot_search_task.set_title(title= "Differential Evolution")
     de_algorithm= GDE3(problem= benchmark_problem, population_size= 100)
-    de_algorithm.run(2000)
+    plot_stat_task.set_isClassic(isClassic= True)
+    de_algorithm.run(2000, callback= plot_stat_task.do_task)
     print("--> Résultat de l'algorithme GDE3: Différential Evolution")
     for s in de_algorithm.result:
         print(s.objectives)
     print("--------------------------------------------")
     #   --> Genetic Algorithm
     #csv_writer.reset_csv(filename= "ga.csv")
-    plot_search_task2.set_title(title= "Genetic Algorithm")
-    ga_algorithm= GeneticAlgorithm(problem= benchmark_problem, population_size= 100)
-    ga_algorithm.run(2000)
+    #plot_search_task2.set_title(title= "Genetic Algorithm")
+    ga_algorithm= GeneticAlgorithm(problem= benchmark_problem, variator= GAOperator(SBX(), CompoundMutation()), population_size= 100)
+    ga_algorithm.run(2000, callback= plot_stat_task.do_task)
     print("--> Résultat de l'algorithme GeneticAlgorithm Classique")
     for s in ga_algorithm.result:
         print(s.objectives)
@@ -74,29 +121,33 @@ if __name__ == "__main__":
     #csv_writer.reset_csv(filename= "nsgaii.csv")
     plot_search_task2.set_title(title= "NSGAII Algorithm")
     nsga_algorithm= NSGAII(problem= benchmark_problem, population_size= 100)
-    nsga_algorithm.run(2000)
+    nsga_algorithm.run(2000, callback= plot_stat_task.do_task)
     print("--> Résultat de l'algorithme NSGAII: Genetic Algorithm")
     for s in ga_algorithm.result:
         print(s.objectives)
     print("--------------------------------------------")
     # --> Plot Statistics
-    algorithm_list= [ga_algorithm, nsga_algorithm, smpso_algorithm, de_algorithm]
+    algorithm_list= [smpso_algorithm, de_algorithm, ga_algorithm, nsga_algorithm]
     plot_stat_task.display_plot_stat(algorithm_list= algorithm_list)
-    """
-"""
-    #==> Evolution de la fitness value en fonction du nombre d'itérations <==#
-    benchmark_problem= Problem(2, 1, function= kim)
+
+#==> Evolution de la fitness value en fonction du nombre d'itérations <==#
+def test_fitness_value_algorithms():
+    benchmark_problem= Problem(50, 1, function= kim)
     benchmark_problem.types[:]= Real(-5, 5)
     benchmark_problem.directions= [Problem.MINIMIZE]
     resultNfe, resultMin=[], [] # empty results
-    algo_names= ["SMPSO", "GDE3", "GA", "NSGAII"]
+    #algo_names= ["SMPSO", "GDE3", "GA", "NSGAII"]
+    #algo_names= ["GA", "NSGAII"]
+    algo_names= ["SMPSO", "GDE3", "NSGAII"]
     smpso_algorithm= SMPSO(problem= benchmark_problem, swarm_size= 100, leader= 5)
     de_algorithm= GDE3(problem= benchmark_problem, population_size= 100)
-    ga_algorithm= GeneticAlgorithm(problem= benchmark_problem, population_size= 100)
-    nsga_algorithm= NSGAII(problem= benchmark_problem, population_size= 100)
-    algorithm_list= [smpso_algorithm, de_algorithm, ga_algorithm, nsga_algorithm]
-    plot_stat1= PlotStatistics(isClassic= False)    #SMPSO
-    plot_stat2= PlotStatistics(isClassic= True)     #Le Reste(DE, GA, NSGAII)
+    #ga_algorithm= GeneticAlgorithm(problem= benchmark_problem, variator= GAOperator(SBX(),UniformMutation(probability= 0.05, perturbation= 0.05)), population_size= 100)
+    nsga_algorithm= NSGAII(problem= benchmark_problem, variator= GAOperator(SBX(), CompoundMutation()), population_size= 100)
+    #algorithm_list= [smpso_algorithm, de_algorithm, ga_algorithm, nsga_algorithm]
+    #algorithm_list= [ga_algorithm, nsga_algorithm]
+    algorithm_list= [smpso_algorithm, de_algorithm, nsga_algorithm]
+    plot_stat= PlotStatistics()                    #isClassic= False -->   SMPSO
+                                                    #isClassic= True  -->   Le Reste(DE, GA, NSGAII)
     algo_list= np.empty((0, 1), dtype= object)
     for algorithm in algorithm_list:
         algo= np.array([algorithm])
@@ -105,9 +156,11 @@ if __name__ == "__main__":
             random.seed(seed) # modify current seed
             # TO BE COMPLETED
             if isinstance(algorithm, SMPSO):
-                algorithm.run(200, callback= plot_stat1.do_task)
+                plot_stat.set_isClassic(isClassic= False)
+                algorithm.run(200, callback= plot_stat.do_task)
             else:
-                algorithm.run(200, callback= plot_stat2.do_task) 
+                plot_stat.set_isClassic(isClassic= True)
+                algorithm.run(200, callback= plot_stat.do_task) 
             # create a pandas serie for Nfe & Min fitness
             resultNfe.append(pd.Series(algorithm.statistics['nfe']))
             resultMin.append(pd.Series(algorithm.statistics['min']))
@@ -120,50 +173,85 @@ if __name__ == "__main__":
     for algo in algorithm_list:
         plt.plot(algo.statistics['nfe'], algo.statistics['avg'], label= algo_names[i])
         i+= 1
-    plt.title("Comparaison Genetic Algorithm, NSGAII, SMPSO, Differential Evolution")
+    plt.title("NSGAII, SMPSO, Differential Evolution("+ str(benchmark_problem.nvars) + "D)")
+    #plt.title("Comparaison Genetic Algorithm, NSGAII ("+ str(benchmark_problem.nvars) + "D)")
     plt.xlabel('Number of Function Evaluations')
     plt.ylabel('Average min fitness')
     plt.legend()
     plt.show()
-"""    
 
 #==> Etude Statistique sur Fonctions CEC2005<== #
-plot_stat= PlotStatistics()
-nexec= 20
-nfe= 1000
-#dims= [2,10,30,50]
-dims= [10]
-problem= None
-Xovers=SBX()
-Mutations=PM()
-problems= []
-types_problems= dict()
-results = OrderedDict()
-for dim in dims:
-    for cec_function in optproblems.cec2005.CEC2005(dim):
-        problem = Problem(dim, cec_function.num_objectives, function=interceptedFunction(cec_function))
-        problem.CECProblem = cec_function
-        problem.types[:] = Real(-50,50) if cec_function.min_bounds is None else Real(cec_function.min_bounds[0], cec_function.max_bounds[0])
-        problem.directions = [Problem.MAXIMIZE if cec_function.do_maximize else Problem.MINIMIZE]
-        # a couple (problem_instance,problem_name) Mandatory because all functions are instance of Problem class
-        name = type(cec_function).__name__ + '_' + str(dim) + 'D'
-        label= ""
-        if problem.directions[0] == Problem.MAXIMIZE:
-            label = "Maximiser"
-        else:
-            label = "Minimiser"
-        types_problems[name]= label
-        problems.append((problem, name))
-    a1= SMPSO(problem= problem, swarm_size= 100, leader= 5)
-    a2= GDE3(problem= problem, population_size= 100)
-    a3= GeneticAlgorithm(problem= problem, population_size= 100)
-    a4= NSGAII(problem= problem, population_size= 100)
-    algorithms= [(GeneticAlgorithm, dict(), "GA"), (SMPSO, dict(), "SMPSO"), (GDE3, dict(), "DE"), (NSGAII, dict(), "NSGAII")]
-    results = results | experiment(algorithms=algorithms, problems=problems, nfe=nfe, seeds=nexec,
-                                    display_stats=True)
-    indicators=[bestFitness()]
-    plot_stat.plot_CEC2005_stat(results, indicators, bench_function= 8, types_problems= types_problems)
+def etude_stat_algorithms(nexec= 10, nfe= 1000, dims= [2]):
+    plot_stat= PlotStatistics()
+    problem= None
+    problems= []
+    types_problems= dict()
+    results = OrderedDict()
+    for dim in dims:
+        for cec_function in optproblems.cec2005.CEC2005(dim):
+            problem = Problem(dim, cec_function.num_objectives, function=interceptedFunction(cec_function))
+            problem.CECProblem = cec_function
+            problem.types[:] = Real(-50,50) if cec_function.min_bounds is None else Real(cec_function.min_bounds[0], cec_function.max_bounds[0])
+            problem.directions = [Problem.MAXIMIZE if cec_function.do_maximize else Problem.MINIMIZE]
+            # a couple (problem_instance,problem_name) Mandatory because all functions are instance of Problem class
+            name = type(cec_function).__name__ + '_' + str(dim) + 'D'
+            label= ""
+            if problem.directions[0] == Problem.MAXIMIZE:
+                label = "Maximiser"
+            else:
+                label = "Minimiser"
+            types_problems[name]= label
+            problems.append((problem, name))
+        algorithms= [(SMPSO, dict(), "SMPSO"), (GDE3, dict(), "DE"), (NSGAII, dict(variator= GAOperator(SBX(), CompoundMutation())), "NSGAII")]
+        results = results | experiment(algorithms=algorithms, problems=problems, nfe=nfe, seeds=nexec,
+                                        display_stats=True)
+        indicators=[bestFitness()]
+        plot_stat.plot_CEC2005_stat(results, indicators, dim= dims[0], types_problems= types_problems)
 
-        
+def etude_stat_convergence(dims= [2], nfe= 1000, pop_size= 100, swarm_size= 100, leader= 5):
+    plot_stat= PlotStatistics()
+    statistics= {"NSGAII":[], "SMPSO":[], "DE":[]}
+    for dim in dims:
+        epoch= ceil(nfe / pop_size)
+        for cec_function in optproblems.cec2005.CEC2005(dim):
+            isInit= False
+            problem = Problem(dim, cec_function.num_objectives, function=interceptedFunction(cec_function))
+            problem.CECProblem = cec_function
+            problem.types[:] = Real(-50,50) if cec_function.min_bounds is None else Real(cec_function.min_bounds[0], cec_function.max_bounds[0])
+            problem.directions = [Problem.MAXIMIZE if cec_function.do_maximize else Problem.MINIMIZE]
+            # a couple (problem_instance,problem_name) Mandatory because all functions are instance of Problem class
+            name = type(cec_function).__name__ + '_' + str(dim) + 'D'
+            smpso_algorithm= SMPSO(problem= problem, swarm_size= 100, leader= 5)
+            de_algorithm= GDE3(problem= problem, population_size= 100)
+            nsga_algorithm= NSGAII(problem= problem, variator= GAOperator(SBX(), CompoundMutation()), population_size= 100)
+            algorithms= [(SMPSO, dict(), "SMPSO"), (GDE3, dict(), "DE"), (NSGAII, dict(variator= GAOperator(SBX(), CompoundMutation())), "NSGAII")]
+            
+            plot_stat.set_fnct_name(name)
+            plot_stat.set_problem(problem)
+            results= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=pop_size, seeds=epoch, display_stats=True)
+            """for e in range(4):
+                plot_stat.set_isClassic(isClassic= True)
+                if isInit == False:
+                    nsga_algorithm.run(1, callback= plot_stat.save_conv_stat)
+                    de_algorithm.run(1, callback= plot_stat.save_conv_stat)
+                    results= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=nfe, seeds=1, display_stats=True)
+                else: 
+                    nsga_algorithm.run(ceil(epoch/3), callback= plot_stat.save_conv_stat)
+                    de_algorithm.run(ceil(epoch/3), callback= plot_stat.save_conv_stat)
+                    results= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=nfe, seeds=ceil(epoch/3), display_stats=True)
+                plot_stat.set_isClassic(isClassic= False)
+                if isInit == False:
+                    smpso_algorithm.run(1, callback= plot_stat.save_conv_stat)
+                    isInit= True
+                else:
+                    smpso_algorithm.run(ceil(epoch/3), callback= plot_stat.save_conv_stat)
+                nsga_algorithm.set_initial_population(solutions)
+            statistics["NSGAII"].append(plot_stat.get_stat(nsga_algorithm))
+            statistics["DE"].append(plot_stat.get_stat(de_algorithm))
+            statistics["SMPSO"].append(plot_stat.get_stat(smpso_algorithm))"""
+    return statistics
 
-    
+
+
+if __name__ == "__main__":
+    etude_stat_convergence()
