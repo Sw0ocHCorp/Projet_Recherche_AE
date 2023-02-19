@@ -6,14 +6,26 @@ import matplotlib.pyplot as plt
 from platypus import *
 from scipy.spatial import ConvexHull
 from platypus.indicators import Hypervolume
+from matplotlib.gridspec import GridSpec
+from platypus.algorithms import NSGAII, SMPSO, GDE3
 
 class PatternObservers():
-    def __init__(self, tasks):
-        self.tasks= tasks
+    def __init__(self):
+        pass
     
+    def attach_tasks(self, tasks):
+        self.tasks= tasks
+
     def do_observers_tasks(self, algorithm):
         for task in self.tasks:
             task.do_task(algorithm)
+    
+    def attach_functions(self, target_functions):
+        self.target_functions= target_functions
+    
+    def do_target_functions(self, algorithm):
+        for target_function in self.target_functions:
+            target_function(algorithm)
 
 class CSVWriter():
     def __init__(self):
@@ -87,6 +99,9 @@ class PlotStatistics():
         self.algo_names= np.array([])
         self.fnct_name= ""
         self.statistics= {"SMPSO": {}, "DE": {}, "NSGAII": {}}
+        self.num_study= 0
+        self.saved_nfe= []
+        self.index_saved_nfe= 0
 
     def set_problem(self, problem):
         self.problem= problem
@@ -100,48 +115,181 @@ class PlotStatistics():
     def get_stat(self, algorithm):
         return algorithm.statistics
 
-    def save_conv_stat(self, algorithm):
-        hv= Hypervolume(minimum= [0,0], maximum= [1,1])
-        if isinstance(algorithm, SMPSO):
-            if self.fnct_name not in self.statistics["SMPSO"]:
-                self.statistics["SMPSO"][self.fnct_name]= {'nfe': [], 'avg': [], 'min': [], 'max': [], 'std': [], 'q1': [], 'med': [], 'q3': [], 'best_hv':[]}
-        if isinstance(algorithm, SMPSO):
-            if self.fnct_name not in self.statistics["SMPSO"]:
-                self.statistics["SMPSO"][self.fnct_name]= {'nfe': [], 'avg': [], 'min': [], 'max': [], 'std': [], 'q1': [], 'med': [], 'q3': [], 'best_hv':[]}
-        
-        algorithm.statistics[self.fnct_name]['nfe'].append(algorithm.nfe)
-        if self.problem.CECProblem.min_bounds is not None:
-            hv= Hypervolume(minimum= self.problem.CECProblem.min_bounds, maximum= self.problem.CECProblem.max_bounds)
-        if hasattr(algorithm, 'population'):
-            if self.problem.CECProblem.min_bounds is None:
-                hv= Hypervolume(reference_set= algorithm.population)
-            fitness= [s.objectives[0] for s in algorithm.population]
-            algorithm.statistics[self.fnct_name]['min'].append(algorithm.population[np.argmin(fitness)])
-            algorithm.statistics[self.fnct_name]['max'].append(algorithm.population[np.argmax(fitness)])
-            hv_data= hv.calculate(algorithm.population)
-            if self.problem.directions[0]== -1:
-                algorithm.statistics[self.fnct_name]['best_hv'].append(hv_data)
-            else:
-                algorithm.statistics[self.fnct_name]['best_hv'].append(hv_data)
+    def setup_new_analysis(self):
+        self.num_study+= 1
+    
+    def reset_analysis(self):
+        self.num_study= 0
 
-        else:
-            if self.problem.CECProblem.min_bounds is None:
-                hv= Hypervolume(reference_set= algorithm.particles)
+    def save_stat(self, algorithm):
+        hv= Hypervolume(minimum= [0,0], maximum= [1,1])
+        fitness= []
+        if not hasattr(algorithm, 'statistics'):
+            algorithm.statistics= dict()
+        if hasattr(algorithm, "population"):
+            hv= Hypervolume(reference_set= algorithm.population)
+            fitness= [s.objectives[0] for s in algorithm.population]
+            algorithm.statistics[str(algorithm.nfe)]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.population), "population": algorithm.population}
+        if hasattr(algorithm, "particles"):
+            hv= Hypervolume(reference_set= algorithm.particles)
             fitness= [s.objectives[0] for s in algorithm.particles]
-            algorithm.statistics[self.fnct_name]['min'].append(algorithm.particles[np.argmin(fitness)])
-            algorithm.statistics[self.fnct_name]['max'].append(algorithm.particles[np.argmax(fitness)])
-            hv_data= hv.calculate(algorithm.particles)
-            if self.problem.directions[0]== -1:
-                algorithm.statistics[self.fnct_name]['best_hv'].append(algorithm.particles[np.argmin(hv_data)])
+            algorithm.statistics[str(algorithm.nfe)]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.particles), "population": algorithm.particles}
+    
+    def save_stat_cec(self, algorithm):
+        hv= Hypervolume(minimum= [0,0], maximum= [1,1])
+        fitness= []
+        if isinstance(algorithm, SMPSO):
+            hv= Hypervolume(reference_set= algorithm.particles)
+            fitness= [s.objectives[0] for s in algorithm.particles]
+            if self.fnct_name not in self.statistics["SMPSO"].keys():
+                self.statistics["SMPSO"][self.fnct_name]= {}
+                if algorithm.nfe not in self.statistics["SMPSO"][self.fnct_name]:
+                    self.statistics["SMPSO"][self.fnct_name][algorithm.nfe]= {}
+                    if self.num_study not in self.statistics["SMPSO"][self.fnct_name][algorithm.nfe]:
+                        self.statistics["SMPSO"][self.fnct_name][algorithm.nfe][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.particles), "particles": algorithm.particles}
             else:
-                algorithm.statistics[self.fnct_name]['best_hv'].append(algorithm.particles[np.argmax(hv_data)])
-        algorithm.statistics[self.fnct_name]['avg'].append(np.round_(np.average(fitness), decimals= 3))
-        algorithm.statistics[self.fnct_name]['std'].append(np.round_(np.std(fitness), decimals= 3))
-        algorithm.statistics[self.fnct_name]['med'].append(np.round_(np.median(fitness), decimals= 3))
-        algorithm.statistics[self.fnct_name]['q1'].append(np.round_(np.percentile(fitness, 25), decimals= 3))
-        algorithm.statistics[self.fnct_name]['q3'].append(np.round_(np.percentile(fitness, 75), decimals= 3))
+                if algorithm.nfe not in self.statistics["SMPSO"][self.fnct_name]:
+                    self.statistics["SMPSO"][self.fnct_name][algorithm.nfe]= {}
+                    if self.num_study not in self.statistics["SMPSO"][self.fnct_name][algorithm.nfe]:
+                        self.statistics["SMPSO"][self.fnct_name][algorithm.nfe][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.particles), "particles": algorithm.particles}
+                else:
+                    if self.num_study not in self.statistics["SMPSO"][self.fnct_name][algorithm.nfe]:
+                        self.statistics["SMPSO"][self.fnct_name][algorithm.nfe][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.particles), "particles": algorithm.particles}
+        elif isinstance(algorithm, NSGAII):
+            hv= Hypervolume(reference_set= algorithm.population)
+            fitness= [s.objectives[0] for s in algorithm.population]
+            if self.fnct_name not in self.statistics["NSGAII"].keys():
+                self.statistics["NSGAII"][self.fnct_name]= {}
+                if algorithm.nfe not in self.statistics["NSGAII"][self.fnct_name]:
+                    self.saved_nfe.append(algorithm.nfe)
+                    self.statistics["NSGAII"][self.fnct_name][algorithm.nfe]= {}
+                    if self.num_study not in self.statistics["NSGAII"][self.fnct_name][algorithm.nfe]:
+                        self.statistics["NSGAII"][self.fnct_name][algorithm.nfe][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.population), "population": algorithm.population}
+            else:
+                if len(self.saved_nfe) < 4:
+                    if algorithm.nfe not in self.statistics["NSGAII"][self.fnct_name]:
+                        self.saved_nfe.append(algorithm.nfe)
+                        self.statistics["NSGAII"][self.fnct_name][algorithm.nfe]= {}
+                        if self.num_study not in self.statistics["NSGAII"][self.fnct_name][algorithm.nfe]:
+                            self.statistics["NSGAII"][self.fnct_name][algorithm.nfe][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.population), "population": algorithm.population}
+                    else:
+                        if self.num_study not in self.statistics["NSGAII"][self.fnct_name][algorithm.nfe]:
+                            self.statistics["NSGAII"][self.fnct_name][algorithm.nfe][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.population), "population": algorithm.population}
+                else:
+                    if self.num_study not in self.statistics["NSGAII"][self.fnct_name][self.index_saved_nfe]:
+                        self.statistics["NSGAII"][self.fnct_name][self.saved_nfe[self.index_saved_nfe]][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.population), "population": algorithm.population}
+                    self.index_saved_nfe += 1
+        elif isinstance(algorithm, GDE3):
+            hv= Hypervolume(reference_set= algorithm.population)
+            fitness= [s.objectives[0] for s in algorithm.population]
+            if self.fnct_name not in self.statistics["DE"].keys():
+                self.statistics["DE"][self.fnct_name]= {}
+                if algorithm.nfe not in self.statistics["DE"][self.fnct_name]:
+                    self.statistics["DE"][self.fnct_name][algorithm.nfe]= {}
+                    if self.num_study not in self.statistics["DE"][self.fnct_name][algorithm.nfe]:
+                        self.statistics["DE"][self.fnct_name][algorithm.nfe][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.population), "population": algorithm.population}
+            else:
+                if algorithm.nfe not in self.statistics["DE"][self.fnct_name]:
+                    self.statistics["DE"][self.fnct_name][algorithm.nfe]= {}
+                    if self.num_study not in self.statistics["DE"][self.fnct_name][algorithm.nfe]:
+                        self.statistics["DE"][self.fnct_name][algorithm.nfe][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.population), "population": algorithm.population}
+                else:
+                    if self.num_study not in self.statistics["DE"][self.fnct_name][algorithm.nfe]:
+                        self.statistics["DE"][self.fnct_name][algorithm.nfe][self.num_study]= {"population_fitness": fitness, "hv_value": hv.calculate(algorithm.population), "population": algorithm.population}
+            """
+            if len(self.statistics["SMPSO"]) != 0 and self.num_study in self.statistics["SMPSO"][self.fnct_name].keys():
+                self.statistics["SMPSO"][self.fnct_name][self.num_study]["nfe"].append(algorithm.nfe)
+                self.statistics["SMPSO"][self.fnct_name][self.num_study]["population_fitness"].append(fitness)
+                self.statistics["SMPSO"][self.fnct_name][self.num_study]["hv_value"].append(hv.calculate(algorithm.particles))
+                self.statistics["SMPSO"][self.fnct_name][self.num_study]["particles"].append(algorithm.particles)
+            else:
+                if self.fnct_name not in self.statistics["SMPSO"].keys():
+                    self.statistics["SMPSO"][self.fnct_name]= {}
+                    if self.num_study not in self.statistics["SMPSO"][self.fnct_name].keys():
+                        self.statistics["SMPSO"][self.fnct_name][self.num_study]= {"nfe": [algorithm.nfe], "population_fitness": [fitness], "hv_value": [hv.calculate(algorithm.particles)], "particles": [algorithm.particles]}
+                else:
+                    if self.num_study not in self.statistics["SMPSO"][self.fnct_name].keys():
+                        self.statistics["SMPSO"][self.fnct_name][self.num_study]= {"nfe": [algorithm.nfe], "population_fitness": [fitness], "hv_value": [hv.calculate(algorithm.particles)], "particles": [algorithm.particles]}
+        else:
+            hv= Hypervolume(reference_set= algorithm.population)
+            fitness= [s.objectives[0] for s in algorithm.population]
+            if isinstance(algorithm, NSGAII):
+                if len(self.statistics["NSGAII"]) != 0 and self.num_study in self.statistics["NSGAII"][self.fnct_name].keys():
+                    self.statistics["NSGAII"][self.fnct_name][self.num_study]["nfe"].append(algorithm.nfe)
+                    self.statistics["NSGAII"][self.fnct_name]["population_fitness"].append(fitness)
+                    self.statistics["NSGAII"][self.fnct_name]["hv_value"].append(hv.calculate(algorithm.population))
+                    self.statistics["NSGAII"][self.fnct_name]["population"].append(algorithm.population)
+                else:
+                    if self.fnct_name not in self.statistics["NSGAII"].keys():
+                        self.statistics["NSGAII"][self.fnct_name]= {}
+                        if self.num_study not in self.statistics["NSGAII"][self.fnct_name].keys():
+                            self.statistics["NSGAII"][self.fnct_name][self.num_study]= {"nfe": [algorithm.nfe], "population_fitness": [fitness], "hv_value": [hv.calculate(algorithm.population)], "particles": [algorithm.population]}
+            if isinstance(algorithm, GDE3):
+                if len(self.statistics["DE"]) != 0 and self.num_study in self.statistics["DE"][self.fnct_name].keys():
+                    self.statistics["DE"][self.fnct_name][self.num_study]["nfe"].append(algorithm.nfe)
+                    self.statistics["DE"][self.fnct_name]["population_fitness"].append(fitness)
+                    self.statistics["DE"][self.fnct_name]["hv_value"].append(hv.calculate(algorithm.population))
+                    self.statistics["DE"][self.fnct_name]["population"].append(algorithm.population)
+                else:
+                    if self.fnct_name not in self.statistics["DE"].keys():
+                        self.statistics["DE"][self.fnct_name]= {}
+                        if self.num_study not in self.statistics["DE"][self.fnct_name].keys():
+                            self.statistics["DE"][self.fnct_name][self.num_study]= {"nfe": [algorithm.nfe], "population_fitness": [fitness], "hv_value": [hv.calculate(algorithm.population)], "particles": [algorithm.population]}
+                    """
+    def plot_bxplt_stat(self, algorithm):
+        isInit= False
+        data= []
+        labels= []
+        data_hv= [0]
+        fig = plt.figure()
+        ax = fig.gca()
+        for nfe in algorithm.statistics.keys():
+            data.append(algorithm.statistics[nfe]["population_fitness"])
+            data_hv.append(algorithm.statistics[nfe]["hv_value"])
+            labels.append(str(nfe) + " NFE")
+        ax.boxplot(data, labels= labels)
+        ticks = ax.get_xticks()
+        ax2 = ax.twinx()
+        ax2.plot(data_hv, color= "red")
+        ax2.tick_params(axis='y', labelcolor="red")
+        plt.show()
+
+    def plot_bxplt_stat_cec(self, fnct_names):
+        isInit= False
         
-        #print(algorithm.statistics)
+        fig = plt.figure()
+        grid= GridSpec(4, len(fnct_names), wspace=0.75, hspace=1)
+        dic= dict()
+        for a, fnct in enumerate(fnct_names):
+            for algorithm in self.statistics.keys():
+                data= []
+                hv_data= []
+                labels= []
+                if algorithm not in dic.keys():
+                    dic[algorithm]= {}
+                dic[algorithm][fnct]= {}
+                for nfe in self.statistics[algorithm][fnct].keys():
+                    labels.append(str(nfe) + " NFE")
+                    fnct_array= []
+                    fnct_hv= []
+                    for exec in self.statistics[algorithm][fnct][nfe].keys():
+                        fnct_array.append(self.statistics[algorithm][fnct][nfe][exec]["population_fitness"])
+                        fnct_hv.append(self.statistics[algorithm][fnct][nfe][exec]["hv_value"])
+                    data.append(np.mean(fnct_array, axis= 0))
+                    hv_data.append(np.mean(fnct_hv))
+                dic[algorithm][fnct]= {"fitness": data, "hv": hv_data, "labels": labels}
+
+        for row, algorithm in enumerate(dic.keys()):
+            for col, function in enumerate(dic[algorithm].keys()):
+                ax= fig.add_subplot(grid[row, col])
+                ax.set_title(function)
+                ax.boxplot(dic[function]["fitness"], labels= dic[function]["labels"])
+                ticks = ax.get_xticks()
+                ax2 = ax.twinx()
+                ax2.plot(dic[function]["hv"], color= "red")
+                ax2.tick_params(axis='y', labelcolor="red")
+        plt.show()
+        
 
     def do_task(self, algorithm):
         #self.cpt+=1

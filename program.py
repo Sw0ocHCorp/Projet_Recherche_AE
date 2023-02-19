@@ -26,6 +26,24 @@ def sixhump(individual):
 def kim(individual):
      return (sin(individual[0]) + cos(individual[1]) + 0.016*(individual[0]-5)**2 + 0.008*(individual[1] - 5)**2)
 
+def plot_search_spc(algorithm):     #Pour Particle Swarm
+        solX= np.array([])
+        solY= np.array([])
+        solZ= np.array([])
+        fig= plt.figure(figsize=(6,6))
+        ax= fig.add_subplot(111, projection= "3d")
+        x = np.arange(-5, 5, 0.1) # set of float values between
+        y = np.arange(-5, 5, 0.1) # -0.5 and 0.5 step 0.1
+        X, Y = np.meshgrid(x, y) # dot product between x & y
+        Z = [kim([a,b]) for a,b in zip(np.ravel(X),np.ravel(Y))]
+        Z = np.array(Z).reshape(X.shape)
+        surf = ax.plot_surface(X, Y, Z, alpha=0.3)
+        solX = [x.variables[0] for x in algorithm.particles] # extract x values from population
+        solY = [x.variables[1] for x in algorithm.particles] # extract y values from population
+        solZ = [x.objectives[0] for x in algorithm.particles] # extract z values from population
+        surf = ax.scatter(solX,solY,solZ, color='red') # plot population
+        plt.show() # show plot"""
+
 #==> Optimisation des Algorithmes GA et NSGAII <==#
 def opti_ga_nsgaii(nexec= 30, dim= 2):
     plot_stat= PlotStatistics()
@@ -82,8 +100,9 @@ def test_convergence():
     plot_search_task2= PlotSearchSpace(benchmark_function= kim, isClassic= True)
     
     #observers= np.array([csv_writer, plot_search_task, plot_stat_task], dtype= object)
-    observers= np.array([plot_stat_task], dtype= object)
-    pattern_observer= PatternObservers(tasks= observers)
+    observers= np.array([plot_stat_task, plot_search_task], dtype= object)
+    pattern_observer= PatternObservers()
+    pattern_observer.attach_tasks(tasks= observers)
     benchmark_problem= Problem(10, 1, function= kim)
     benchmark_problem.types[:]= Real(-5, 5)
     benchmark_problem.directions= [Problem.MINIMIZE]
@@ -93,7 +112,7 @@ def test_convergence():
     #plot_search_task.set_title(title= "Particle Swarm Optimization")
     smpso_algorithm= SMPSO(problem= benchmark_problem, swarm_size= 100, leader= 5)
     plot_stat_task.set_isClassic(isClassic= False)
-    smpso_algorithm.run(2000, callback= plot_stat_task.do_task)
+    smpso_algorithm.run(2000, callback= pattern_observer.do_task)
     #observers= np.array([csv_writer, plot_search_task2, plot_stat_task2], dtype= object)
     print("--> Résultat de l'algorithme SMPSO: Particle Swarm Optimization")
     for s in smpso_algorithm.result:
@@ -203,17 +222,22 @@ def etude_stat_algorithms(nexec= 10, nfe= 1000, dims= [2]):
             types_problems[name]= label
             problems.append((problem, name))
         algorithms= [(SMPSO, dict(), "SMPSO"), (GDE3, dict(), "DE"), (NSGAII, dict(variator= GAOperator(SBX(), CompoundMutation())), "NSGAII")]
-        results = results | experiment(algorithms=algorithms, problems=problems, nfe=nfe, seeds=nexec,
-                                        display_stats=True)
+        #Enlever les Argument plot_stat pour les fonction experiment | evaluate_job_generator | ExperimentJob
+        """results = results | experiment(algorithms=algorithms, problems=problems, nfe=nfe, seeds=nexec,
+                                        display_stats=True)"""
         indicators=[bestFitness()]
         plot_stat.plot_CEC2005_stat(results, indicators, dim= dims[0], types_problems= types_problems)
 
 def etude_stat_convergence(dims= [2], nfe= 1000, pop_size= 100, swarm_size= 100, leader= 5):
     plot_stat= PlotStatistics()
+    results = OrderedDict()
     statistics= {"NSGAII":[], "SMPSO":[], "DE":[]}
+    cpt=0
     for dim in dims:
         epoch= ceil(nfe / pop_size)
         for cec_function in optproblems.cec2005.CEC2005(dim):
+            if cpt >= 4:
+                break
             isInit= False
             problem = Problem(dim, cec_function.num_objectives, function=interceptedFunction(cec_function))
             problem.CECProblem = cec_function
@@ -221,14 +245,11 @@ def etude_stat_convergence(dims= [2], nfe= 1000, pop_size= 100, swarm_size= 100,
             problem.directions = [Problem.MAXIMIZE if cec_function.do_maximize else Problem.MINIMIZE]
             # a couple (problem_instance,problem_name) Mandatory because all functions are instance of Problem class
             name = type(cec_function).__name__ + '_' + str(dim) + 'D'
-            smpso_algorithm= SMPSO(problem= problem, swarm_size= 100, leader= 5)
-            de_algorithm= GDE3(problem= problem, population_size= 100)
-            nsga_algorithm= NSGAII(problem= problem, variator= GAOperator(SBX(), CompoundMutation()), population_size= 100)
             algorithms= [(SMPSO, dict(), "SMPSO"), (GDE3, dict(), "DE"), (NSGAII, dict(variator= GAOperator(SBX(), CompoundMutation())), "NSGAII")]
             
             plot_stat.set_fnct_name(name)
-            plot_stat.set_problem(problem)
-            results= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=pop_size, seeds=epoch, display_stats=True)
+            #plot_stat.set_problem(problem)
+            result= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=pop_size, seeds=epoch, display_stats=True, plot_stat= plot_stat)
             """for e in range(4):
                 plot_stat.set_isClassic(isClassic= True)
                 if isInit == False:
@@ -249,9 +270,31 @@ def etude_stat_convergence(dims= [2], nfe= 1000, pop_size= 100, swarm_size= 100,
             statistics["NSGAII"].append(plot_stat.get_stat(nsga_algorithm))
             statistics["DE"].append(plot_stat.get_stat(de_algorithm))
             statistics["SMPSO"].append(plot_stat.get_stat(smpso_algorithm))"""
+            cpt+=1
+    plot_stat.plot_bxplt_stat_cec(fnct_names=["F1_2D", "F3_2D"])
     return statistics
+
+#==> CUSTOM EXPERIMENT <==#
 
 
 
 if __name__ == "__main__":
-    etude_stat_convergence()
+    #etude_stat_convergence()
+    plot_stat= PlotStatistics()
+    pattern_observer= PatternObservers()
+    benchmark_problem= Problem(2, 1, function= kim)
+    benchmark_problem.types[:]= Real(-50, 50)
+    benchmark_problem.directions= [Problem.MINIMIZE]
+    plot_search_task= PlotSearchSpace(benchmark_function= kim, isClassic= False)
+    smpso_algorithm= SMPSO(problem= benchmark_problem, swarm_size= 100, leader= 5)
+    de_algorithm= GDE3(problem= benchmark_problem, population_size= 100)
+    nsga_algorithm= NSGAII(problem= benchmark_problem, variator= GAOperator(SBX(), CompoundMutation()), population_size= 100)
+    smpso_algorithm.run(500, callback= plot_stat.save_stat)
+    de_algorithm.run(500, callback= plot_stat.save_stat)
+    nsga_algorithm.run(500, callback= plot_stat.save_stat)
+    plot_stat.plot_bxplt_stat(algorithm= smpso_algorithm)
+    plot_stat.plot_bxplt_stat(algorithm= de_algorithm)
+    plot_stat.plot_bxplt_stat(algorithm= nsga_algorithm)
+    #etude_stat_convergence()
+    #test_convergence()
+    
