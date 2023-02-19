@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import optproblems.cec2005
+
 import seaborn as sns
 from platypus import ExperimentJob
 
@@ -250,26 +251,7 @@ def etude_stat_convergence(dims= [2], nfe= 1000, pop_size= 100, swarm_size= 100,
             plot_stat.set_fnct_name(name)
             #plot_stat.set_problem(problem)
             result= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=pop_size, seeds=epoch, display_stats=True, plot_stat= plot_stat)
-            """for e in range(4):
-                plot_stat.set_isClassic(isClassic= True)
-                if isInit == False:
-                    nsga_algorithm.run(1, callback= plot_stat.save_conv_stat)
-                    de_algorithm.run(1, callback= plot_stat.save_conv_stat)
-                    results= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=nfe, seeds=1, display_stats=True)
-                else: 
-                    nsga_algorithm.run(ceil(epoch/3), callback= plot_stat.save_conv_stat)
-                    de_algorithm.run(ceil(epoch/3), callback= plot_stat.save_conv_stat)
-                    results= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=nfe, seeds=ceil(epoch/3), display_stats=True)
-                plot_stat.set_isClassic(isClassic= False)
-                if isInit == False:
-                    smpso_algorithm.run(1, callback= plot_stat.save_conv_stat)
-                    isInit= True
-                else:
-                    smpso_algorithm.run(ceil(epoch/3), callback= plot_stat.save_conv_stat)
-                nsga_algorithm.set_initial_population(solutions)
-            statistics["NSGAII"].append(plot_stat.get_stat(nsga_algorithm))
-            statistics["DE"].append(plot_stat.get_stat(de_algorithm))
-            statistics["SMPSO"].append(plot_stat.get_stat(smpso_algorithm))"""
+            
             cpt+=1
     plot_stat.plot_bxplt_stat_cec(fnct_names=["F1_2D", "F3_2D"])
     return statistics
@@ -280,7 +262,7 @@ def etude_stat_convergence(dims= [2], nfe= 1000, pop_size= 100, swarm_size= 100,
 
 if __name__ == "__main__":
     #etude_stat_convergence()
-    plot_stat= PlotStatistics()
+    """plot_stat= PlotStatistics()
     pattern_observer= PatternObservers()
     benchmark_problem= Problem(2, 1, function= kim)
     benchmark_problem.types[:]= Real(-50, 50)
@@ -294,7 +276,7 @@ if __name__ == "__main__":
     nsga_algorithm.run(500, callback= plot_stat.save_stat)
     plot_stat.plot_bxplt_stat(algorithm= smpso_algorithm)
     plot_stat.plot_bxplt_stat(algorithm= de_algorithm)
-    plot_stat.plot_bxplt_stat(algorithm= nsga_algorithm)
-    #etude_stat_convergence()
+    plot_stat.plot_bxplt_stat(algorithm= nsga_algorithm)"""
+    etude_stat_convergence()
     #test_convergence()
     
