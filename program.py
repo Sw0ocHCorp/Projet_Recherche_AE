@@ -1,5 +1,6 @@
 from platypus import *
 from math import *
+from optproblems.base import *
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -59,7 +60,7 @@ def opti_ga_nsgaii(nexec= 30, dim= 2):
     i= 0
     for Xover,Mutation in [(x,m) for x in Xovers for m in Mutations]:
         #cpt+=1
-        myProblem = Problem (dim, 1, function= kim)
+        myProblem = Problem(dim, 1, function= kim)
         # each variable of the myProblem is a float value in [-5,5]
         myProblem.types[:] = Real(-5,5)
         myProblem.directions[:]=[Problem.MINIMIZE]
@@ -201,7 +202,7 @@ def test_fitness_value_algorithms():
     plt.show()
 
 #==> Etude Statistique sur Fonctions CEC2005<== #
-def etude_stat_algorithms(nexec= 10, nfe= 1000, dims= [2]):
+def etude_stat_algorithms(nexec= 10, nfe= 1000, dims= [50]):
     plot_stat= PlotStatistics()
     problem= None
     problems= []
@@ -209,27 +210,29 @@ def etude_stat_algorithms(nexec= 10, nfe= 1000, dims= [2]):
     results = OrderedDict()
     for dim in dims:
         for cec_function in optproblems.cec2005.CEC2005(dim):
+            #Platypus problem based on CEC functions using our intercepted class
             problem = Problem(dim, cec_function.num_objectives, function=interceptedFunction(cec_function))
             problem.CECProblem = cec_function
             problem.types[:] = Real(-50,50) if cec_function.min_bounds is None else Real(cec_function.min_bounds[0], cec_function.max_bounds[0])
             problem.directions = [Problem.MAXIMIZE if cec_function.do_maximize else Problem.MINIMIZE]
             # a couple (problem_instance,problem_name) Mandatory because all functions are instance of Problem class
             name = type(cec_function).__name__ + '_' + str(dim) + 'D'
-            label= ""
             if problem.directions[0] == Problem.MAXIMIZE:
                 label = "Maximiser"
             else:
                 label = "Minimiser"
             types_problems[name]= label
             problems.append((problem, name))
+            # a list of (type_algorithm, kwargs_algorithm, name_algorithm)
         algorithms= [(SMPSO, dict(), "SMPSO"), (GDE3, dict(), "DE"), (NSGAII, dict(variator= GAOperator(SBX(), CompoundMutation())), "NSGAII")]
-        #Enlever les Argument plot_stat pour les fonction experiment | evaluate_job_generator | ExperimentJob
-        """results = results | experiment(algorithms=algorithms, problems=problems, nfe=nfe, seeds=nexec,
-                                        display_stats=True)"""
-        indicators=[bestFitness()]
-        plot_stat.plot_CEC2005_stat(results, indicators, dim= dims[0], types_problems= types_problems)
+        results = results | experiment(algorithms=algorithms, problems=problems, nfe=nfe, seeds=nexec,
+display_stats=True)
+        self_best_fitness= bestFitness()
+        indicators=[self_best_fitness]
+        #print_selected_best_element(results, indicators, Mutation= "PM", Xover= "SBX", bench_function= 8)
+        plot_stat.plot_CEC2005_stat(results, indicators, dim, types_problems)
 
-def etude_stat_convergence(dims= [2], nfe= 1000, pop_size= 100, swarm_size= 100, leader= 5):
+def etude_stat_convergence(dims= [50], nfe= 1000, pop_size= 100, swarm_size= 100, leader= 5):
     plot_stat= PlotStatistics()
     results = OrderedDict()
     statistics= {"NSGAII":[], "SMPSO":[], "DE":[]}
@@ -237,26 +240,52 @@ def etude_stat_convergence(dims= [2], nfe= 1000, pop_size= 100, swarm_size= 100,
     for dim in dims:
         epoch= ceil(nfe / pop_size)
         for cec_function in optproblems.cec2005.CEC2005(dim):
-            if cpt >= 4:
-                break
-            isInit= False
-            problem = Problem(dim, cec_function.num_objectives, function=interceptedFunction(cec_function))
-            problem.CECProblem = cec_function
-            problem.types[:] = Real(-50,50) if cec_function.min_bounds is None else Real(cec_function.min_bounds[0], cec_function.max_bounds[0])
-            problem.directions = [Problem.MAXIMIZE if cec_function.do_maximize else Problem.MINIMIZE]
-            # a couple (problem_instance,problem_name) Mandatory because all functions are instance of Problem class
-            name = type(cec_function).__name__ + '_' + str(dim) + 'D'
-            algorithms= [(SMPSO, dict(), "SMPSO"), (GDE3, dict(), "DE"), (NSGAII, dict(variator= GAOperator(SBX(), CompoundMutation())), "NSGAII")]
+            if cpt == 0 or cpt == 9:
+                
+                isInit= False
+                problem = Problem(dim, cec_function.num_objectives, function=interceptedFunction(cec_function))
+                problem.CECProblem = cec_function
+                problem.types[:] = Real(-50,50) if cec_function.min_bounds is None else Real(cec_function.min_bounds[0], cec_function.max_bounds[0])
+                problem.directions = [Problem.MAXIMIZE if cec_function.do_maximize else Problem.MINIMIZE]
+                # a couple (problem_instance,problem_name) Mandatory because all functions are instance of Problem class
+                name = type(cec_function).__name__ + '_' + str(dim) + 'D'
+                algorithms= [(SMPSO, dict(), "SMPSO"), (GDE3, dict(), "DE"), (NSGAII, dict(variator= GAOperator(SBX(), CompoundMutation())), "NSGAII")]
             
-            plot_stat.set_fnct_name(name)
-            #plot_stat.set_problem(problem)
-            result= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=pop_size, seeds=epoch, display_stats=True, plot_stat= plot_stat)
+                plot_stat.set_fnct_name(name)
+                #plot_stat.set_problem(problem)
+                result= experiment(algorithms=algorithms, problems=[(problem, name)], nfe=pop_size, seeds=epoch, display_stats=True, plot_stat= plot_stat)
             
             cpt+=1
-    plot_stat.plot_bxplt_stat_cec(fnct_names=["F1_2D", "F3_2D"])
+    """
+    plot_stat.plot_bxplt_stat_cec(fnct_names=["F2_2D", "F4_2D"])
+    plot_stat.plot_population_diversity(fnct_names=["F2_2D", "F4_2D"])
+    plot_stat.plot_sr_stat(fnct_names=["F2_2D", "F4_2D"])
+    """
+    """
+    plot_stat.plot_bxplt_stat_cec(fnct_names=["F7_2D", "F14_2D", "F21_2D"])
+    plot_stat.plot_population_diversity(fnct_names=["F7_2D", "F14_2D", "F21_2D"])
+    plot_stat.plot_sr_stat(fnct_names=["F7_2D", "F14_2D", "F21_2D"])
+    """
+    """
+    #plot_stat.plot_bxplt_stat_cec(fnct_names=["F1_2D", "F15_2D", "F20_2D"])
+    plot_stat.plot_population_diversity(fnct_names=["F1_2D", "F15_2D", "F20_2D"])
+    plot_stat.plot_sr_stat(fnct_names=["F1_2D", "F15_2D", "F20_2D"])
+    #plot_stat.plot_bxplt_stat_cec(fnct_names=["F1_10D"])
+    #plot_stat.plot_population_diversity(fnct_names=["F1_10D"])
+
+    """
+    
+    plot_stat.plot_bxplt_stat_cec(fnct_names=["F1_50D", "F10_50D"])
+    plot_stat.plot_population_diversity(fnct_names=["F1_50D", "F10_50D"])
+    #plot_stat.plot_sr_stat(fnct_names=["F1_10D"])
+    
+    """
+    plot_stat.plot_bxplt_stat_cec(fnct_names=["F1_50D", "F15_50D", "F20_50D"])
+    plot_stat.plot_population_diversity(fnct_names=["F1_50D", "F15_50D", "F20_50D"])
+    plot_stat.plot_sr_stat(fnct_names=["F1_50D", "F15_50D", "F20_50D"])
+    """
     return statistics
 
-#==> CUSTOM EXPERIMENT <==#
 
 
 
@@ -268,15 +297,23 @@ if __name__ == "__main__":
     benchmark_problem.types[:]= Real(-50, 50)
     benchmark_problem.directions= [Problem.MINIMIZE]
     plot_search_task= PlotSearchSpace(benchmark_function= kim, isClassic= False)
-    smpso_algorithm= SMPSO(problem= benchmark_problem, swarm_size= 100, leader= 5)
-    de_algorithm= GDE3(problem= benchmark_problem, population_size= 100)
-    nsga_algorithm= NSGAII(problem= benchmark_problem, variator= GAOperator(SBX(), CompoundMutation()), population_size= 100)
-    smpso_algorithm.run(500, callback= plot_stat.save_stat)
-    de_algorithm.run(500, callback= plot_stat.save_stat)
-    nsga_algorithm.run(500, callback= plot_stat.save_stat)
+    
+    for exec in range(10):
+        smpso_algorithm= SMPSO(problem= benchmark_problem, swarm_size= 100, leader= 5)
+        de_algorithm= GDE3(problem= benchmark_problem, population_size= 100)
+        nsga_algorithm= NSGAII(problem= benchmark_problem, variator= GAOperator(SBX(), CompoundMutation()), population_size= 100)
+        plot_stat.set_exec(exec + 1)
+        nsga_algorithm.run(2000, callback= plot_stat.save_stat)
+    plot_stat.plot_diversity()"""
+    #plot_stat.plot_sr()
+    """de_algorithm.run(500, callback= plot_stat.save_stat)
+    nsga_algorithm.run(500, callback= plot_stat.save_stat)"""
+
+    """
     plot_stat.plot_bxplt_stat(algorithm= smpso_algorithm)
     plot_stat.plot_bxplt_stat(algorithm= de_algorithm)
-    plot_stat.plot_bxplt_stat(algorithm= nsga_algorithm)"""
+    plot_stat.plot_bxplt_stat(algorithm= nsga_algorithm)
+    """
     etude_stat_convergence()
     #test_convergence()
-    
+    #etude_stat_algorithms(dims= [50])

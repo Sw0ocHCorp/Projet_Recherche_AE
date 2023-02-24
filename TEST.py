@@ -1,16 +1,16 @@
-import numpy as np
-import matplotlib.pyplot as plt
+from optproblems import *
+from math import *
 
-np.random.seed(562201)
-all_data = [np.random.normal(0, std, size=100) for std in range(1, 4)]
-labels = ['x1', 'x2', 'x3']
+# Modélisation du problème d'optimisation
+def kim(individual):
+     return (sin(individual[0]) + cos(individual[1]) + 0.016*(individual[0]-5)**2 + 0.008*(individual[1] - 5)**2)
 
-#MultipleBoxplot
-plt.boxplot(all_data, vert=True, patch_artist=True, labels=labels) 
-plt.ylabel('observed value')
-plt.title('Multiple Box Plot : Vertical Version')
-plt.show()
+my_problem = Problem(kim)
 
-plt.boxplot(all_data, vert=False, patch_artist=True, labels=labels) 
-plt.ylabel('observed value')
-plt.title('Multiple Box Plot : Horizontal Version')  
+# Résolution du problème d'optimisation
+my_solution = my_problem.
+
+# Obtention de l'optimum global
+optimum = my_solution.get_optimum()
+
+print(f"Optimum global : {optimum}")
